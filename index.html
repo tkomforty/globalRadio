@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Global Radio Listener</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -17,6 +18,9 @@
             -webkit-user-select: none;
             touch-action: manipulation;
             -webkit-tap-highlight-color: transparent;
+            position: fixed;
+            width: 100%;
+            height: 100%;
         }
         #container {
             position: absolute; 
@@ -25,6 +29,7 @@
             width: 100%; 
             height: 100%; 
             z-index: 0;
+            touch-action: none;
         }
         #visualizerCanvas {
             position: absolute; 
@@ -54,7 +59,7 @@
             border-radius: 8px;
             color: white; 
             font-size: 0.9rem; 
-            max-width: 300px; 
+            max-width: 80%; 
             border: 1px solid rgba(255, 255, 255, 0.2); 
             box-shadow: 0 2px 10px rgba(0,0,0,0.5); 
             pointer-events: auto;
@@ -72,6 +77,8 @@
              border: 1px solid rgba(255, 255, 255, 0.2); 
              text-align: center; 
              pointer-events: auto;
+             width: 90%;
+             max-width: 300px;
         }
         #loadingMessage {
             position: absolute; 
@@ -85,6 +92,9 @@
             border-radius: 10px; 
             z-index: 11; 
             pointer-events: none;
+            text-align: center;
+            width: 80%;
+            max-width: 300px;
         }
         #pauseButton {
             position: absolute; 
@@ -166,6 +176,7 @@
         // Detect iOS early
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isMobile = /Mobi|Android/i.test(navigator.userAgent) || isIOS;
         
         // Constants
         const API_BASE_URL = 'https://at1.api.radio-browser.info/json';
@@ -207,6 +218,8 @@
         // State
         let rafId;
         let isFirstInteraction = true;
+        let touchStartX, touchStartY;
+        let isDragging = false;
 
         // Initialize audio context for iOS
         function setupIOSAudioContext() {
@@ -286,10 +299,10 @@
             renderer = new THREE.WebGLRenderer({ 
                 antialias: true, 
                 alpha: true,
-                powerPreference: "high-performance"
+                powerPreference: isMobile ? "low-power" : "high-performance"
             });
             renderer.setSize(window.innerWidth, window.innerHeight); 
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1 : 2));
             renderer.domElement.id = 'threeCanvas'; 
             container.appendChild(renderer.domElement);
             visualizerCanvas.width = window.innerWidth; 
@@ -318,11 +331,16 @@
             // Better touch controls for mobile
             controls.touchRotateSpeed = 0.5;
             controls.touchDampingFactor = 0.2;
+            
+            // Disable zoom on mobile
+            if (isMobile) {
+                controls.enableZoom = false;
+            }
         }
 
         // Globe Setup
         function setupGlobe() {
-            const globeGeometry = new THREE.SphereGeometry(GLOBE_RADIUS, 64, 32);
+            const globeGeometry = new THREE.SphereGeometry(GLOBE_RADIUS, isMobile ? 32 : 64, isMobile ? 16 : 32);
             const textureLoader = new THREE.TextureLoader();
             const earthTexture = textureLoader.load(
                 'https://cdn.jsdelivr.net/gh/mrdoob/three.js/examples/textures/planets/earth_atmos_2048.jpg',
@@ -352,7 +370,8 @@
             window.addEventListener('resize', onWindowResize); 
             window.addEventListener('pointermove', onPointerMove);
             window.addEventListener('click', onClick); 
-            window.addEventListener('touchstart', onFirstInteraction, { passive: true, once: true });
+            window.addEventListener('touchstart', onTouchStart, { passive: false });
+            window.addEventListener('touchend', onTouchEnd, { passive: true });
             window.addEventListener('contextmenu', (event) => event.preventDefault());
             pauseButton.addEventListener('click', togglePlayback); 
             audioPlayer.addEventListener('error', handleAudioError);
@@ -362,9 +381,24 @@
             audioPlayer.addEventListener('ended', handleAudioEnded);
         }
 
-        function onFirstInteraction() {
-            isFirstInteraction = false;
-            console.log("First interaction detected");
+        function onTouchStart(e) {
+            if (e.touches.length === 1) {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                isDragging = false;
+            }
+        }
+
+        function onTouchEnd(e) {
+            if (!isDragging && e.changedTouches.length === 1) {
+                // Simulate click if not dragging
+                const touch = e.changedTouches[0];
+                const clickEvent = new MouseEvent('click', {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                });
+                window.dispatchEvent(clickEvent);
+            }
         }
 
         // Modified setupAudioContext for iOS
@@ -492,6 +526,17 @@
             
             if (clientX === undefined || clientY === undefined) return;
             
+            // Detect drag gesture
+            if (event.touches && event.touches.length === 1) {
+                const touch = event.touches[0];
+                const moveX = Math.abs(touch.clientX - touchStartX);
+                const moveY = Math.abs(touch.clientY - touchStartY);
+                
+                if (moveX > 5 || moveY > 5) {
+                    isDragging = true;
+                }
+            }
+            
             pointer.x = (clientX / window.innerWidth) * 2 - 1; 
             pointer.y = -(clientY / window.innerHeight) * 2 + 1;
             raycaster.setFromCamera(pointer, camera); 
@@ -519,6 +564,12 @@
         }
 
         async function onClick(event) {
+            // Ignore clicks if we're dragging on mobile
+            if (isMobile && isDragging) {
+                isDragging = false;
+                return;
+            }
+            
             // Handle both mouse and touch events
             const clientX = event.clientX || (event.touches && event.touches[0]?.clientX);
             const clientY = event.clientY || (event.touches && event.touches[0]?.clientY);
