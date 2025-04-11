@@ -2,51 +2,106 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Global Radio Listener</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Basic reset and body styling */
-        body { margin: 0; overflow: hidden; background-color: #111827; color: #f3f4f6; font-family: 'Inter', sans-serif; }
-        /* Container for the 3D canvas */
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #111827; 
+            color: #f3f4f6; 
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; 
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
         #container {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0;
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            z-index: 0;
         }
-        /* 2D visualizer canvas (behind globe) */
         #visualizerCanvas {
-            position: absolute; top: 50%; transform: translateY(-50%); left: 0;
-            width: 100%; height: 150px; z-index: -1; pointer-events: none;
+            position: absolute; 
+            top: 50%; 
+            transform: translateY(-50%); 
+            left: 0;
+            width: 100%; 
+            height: 150px; 
+            z-index: -1; 
+            pointer-events: none;
         }
-        /* Overlay for UI elements */
         #uiOverlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            pointer-events: none; 
+            z-index: 10;
         }
-        /* Info box styling */
         #infoBox {
-            position: absolute; top: 20px; left: 20px; background-color: rgba(0, 0, 0, 0.7); padding: 10px 15px; border-radius: 8px;
-            color: white; font-size: 0.9rem; max-width: 300px; border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 2px 10px rgba(0,0,0,0.5); pointer-events: auto;
+            position: absolute; 
+            top: 20px; 
+            left: 20px; 
+            background-color: rgba(0, 0, 0, 0.7); 
+            padding: 10px 15px; 
+            border-radius: 8px;
+            color: white; 
+            font-size: 0.9rem; 
+            max-width: 300px; 
+            border: 1px solid rgba(255, 255, 255, 0.2); 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5); 
+            pointer-events: auto;
         }
-        #infoBox strong { display: block; margin-bottom: 5px; font-weight: 600; }
-        #infoBox span { font-size: 0.8rem; opacity: 0.8; }
-        /* Instructions styling */
         #instructions {
-             position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: rgba(0, 0, 0, 0.7); padding: 8px 12px; border-radius: 8px;
-             color: white; font-size: 0.8rem; border: 1px solid rgba(255, 255, 255, 0.2); text-align: center; pointer-events: auto;
+             position: absolute; 
+             bottom: 20px; 
+             left: 50%; 
+             transform: translateX(-50%); 
+             background-color: rgba(0, 0, 0, 0.7); 
+             padding: 8px 12px; 
+             border-radius: 8px;
+             color: white; 
+             font-size: 0.8rem; 
+             border: 1px solid rgba(255, 255, 255, 0.2); 
+             text-align: center; 
+             pointer-events: auto;
         }
-        /* Loading message styling */
-         #loadingMessage {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 1.2rem; background-color: rgba(0, 0, 0, 0.8);
-            padding: 20px; border-radius: 10px; z-index: 11; pointer-events: none;
+        #loadingMessage {
+            position: absolute; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%); 
+            color: white; 
+            font-size: 1.2rem; 
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 20px; 
+            border-radius: 10px; 
+            z-index: 11; 
+            pointer-events: none;
         }
-        /* Play/Pause button styling */
-         #pauseButton {
-            position: absolute; top: 20px; right: 20px; background-color: rgba(0, 0, 0, 0.6); color: white; border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; pointer-events: auto; transition: background-color 0.2s ease;
+        #pauseButton {
+            position: absolute; 
+            top: 20px; 
+            right: 20px; 
+            background-color: rgba(0, 0, 0, 0.6); 
+            color: white; 
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%; 
+            width: 44px; 
+            height: 44px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            cursor: pointer; 
+            pointer-events: auto; 
+            transition: background-color 0.2s ease;
+            -webkit-tap-highlight-color: transparent;
         }
-        #pauseButton:hover { background-color: rgba(0, 0, 0, 0.8); }
-        #pauseButton:disabled { opacity: 0.5; cursor: not-allowed; }
-        #pauseButton svg { width: 20px; height: 20px; fill: currentColor; }
-        /* Loading spinner */
         #pauseButton .loading-spinner {
             display: none;
             animation: spin 1s linear infinite;
@@ -59,14 +114,19 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
-        /* Ensure Three.js canvas displays correctly */
-        canvas#threeCanvas { display: block; position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
+        canvas#threeCanvas { 
+            display: block; 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            z-index: 0; 
+        }
     </style>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 </head>
-<body class="bg-gray-900 text-gray-100">
+<body>
 
     <div id="container"></div>
     <canvas id="visualizerCanvas"></canvas>
@@ -77,7 +137,7 @@
             <span id="stationName">Loading...</span>
         </div>
         <div id="instructions">
-            Click & Drag to rotate. Click a marker to play radio.
+            Tap & Drag to rotate. Tap a marker to play radio.
         </div>
         <button id="pauseButton" title="Play/Pause" disabled>
              <svg id="playIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="display: block;"> <path d="M8 5v14l11-7z"/> </svg>
@@ -87,15 +147,22 @@
     </div>
 
     <div id="loadingMessage">Loading Radio Stations...</div>
-    <audio id="audioPlayer" crossorigin="anonymous" preload="auto"></audio>
+    <audio id="audioPlayer" crossorigin="anonymous" preload="none"></audio>
 
-    <script type="importmap"> { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/" } } </script>
+    <script type="importmap"> 
+    { 
+        "imports": { 
+            "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js", 
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/" 
+        } 
+    } 
+    </script>
 
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-        // --- Constants ---
+        // Constants
         const API_BASE_URL = 'https://at1.api.radio-browser.info/json';
         const GENERAL_STATIONS_URL = `${API_BASE_URL}/stations/search?limit=350&has_geo_info=true&order=random&hidebroken=true&codec=MP3&codec=AAC`;
         const JAPAN_STATIONS_URL = `${API_BASE_URL}/stations/search?limit=50&countrycode=JP&has_geo_info=true&hidebroken=true&codec=MP3&codec=AAC`;
@@ -103,7 +170,7 @@
         const FFT_SIZE = 1024;
         const VISUALIZER_HEIGHT = 150;
 
-        // --- DOM Elements ---
+        // DOM Elements
         const container = document.getElementById('container');
         const audioPlayer = document.getElementById('audioPlayer');
         const infoBox = document.getElementById('infoBox');
@@ -116,20 +183,27 @@
         const visualizerCanvas = document.getElementById('visualizerCanvas');
         const visualizerCtx = visualizerCanvas.getContext('2d');
 
-        // --- Three.js Variables ---
+        // Three.js Variables
         let scene, camera, renderer, controls;
         let globe, markersGroup;
-        const raycaster = new THREE.Raycaster(); const pointer = new THREE.Vector2();
-        let INTERSECTED; let selectedMarker = null;
+        const raycaster = new THREE.Raycaster(); 
+        const pointer = new THREE.Vector2();
+        let INTERSECTED; 
+        let selectedMarker = null;
 
-        // --- Web Audio API Variables ---
-        let audioContext; let analyser; let audioSource; let dataArray;
-        let isAudioContextSetup = false; let lastCorsWarningTime = 0;
+        // Web Audio API Variables
+        let audioContext; 
+        let analyser; 
+        let audioSource; 
+        let dataArray;
+        let isAudioContextSetup = false; 
+        let lastCorsWarningTime = 0;
 
-        // --- State ---
+        // State
         let rafId;
+        let isFirstInteraction = true;
 
-        //========================================== Initialization ==========================================
+        // Initialization
         async function init() {
             console.log("Starting initialization...");
             loadingMessage.style.display = 'block';
@@ -149,8 +223,8 @@
                     addStationMarkers(allStations);
                     console.log("Added station markers.");
                 } else {
-                     console.warn("No stations loaded or fetch failed.");
-                     loadingMessage.textContent = 'No valid stations found.';
+                    console.warn("No stations loaded or fetch failed.");
+                    loadingMessage.textContent = 'No valid stations found.';
                 }
 
                 loadingMessage.style.display = 'none';
@@ -163,52 +237,78 @@
             }
         }
 
-        //========================================== Scene Setup ==========================================
+        // Scene Setup
         function setupScene() {
-            scene = new THREE.Scene(); scene.background = null;
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000); camera.position.z = 15;
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            renderer.setSize(window.innerWidth, window.innerHeight); renderer.setPixelRatio(window.devicePixelRatio);
-            renderer.domElement.id = 'threeCanvas'; container.appendChild(renderer.domElement);
-            visualizerCanvas.width = window.innerWidth; visualizerCanvas.height = VISUALIZER_HEIGHT;
+            scene = new THREE.Scene(); 
+            scene.background = null;
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000); 
+            camera.position.z = 15;
+            renderer = new THREE.WebGLRenderer({ 
+                antialias: true, 
+                alpha: true,
+                powerPreference: "high-performance"
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight); 
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.domElement.id = 'threeCanvas'; 
+            container.appendChild(renderer.domElement);
+            visualizerCanvas.width = window.innerWidth; 
+            visualizerCanvas.height = VISUALIZER_HEIGHT;
         }
 
-        //========================================== Lighting Setup ==========================================
+        // Lighting Setup
         function setupLighting() {
-            const hemiLight = new THREE.HemisphereLight( 0xffffff, 0xaaaaaa, 1.5 ); scene.add( hemiLight );
-            const ambientLight = new THREE.AmbientLight( 0xffffff, 1.0 ); scene.add( ambientLight );
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.5); 
+            scene.add(hemiLight);
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); 
+            scene.add(ambientLight);
         }
 
-        //========================================== Controls Setup ==========================================
+        // Controls Setup
         function setupControls() {
-             controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.dampingFactor = 0.05;
-             controls.screenSpacePanning = false; controls.enablePan = false; controls.minDistance = 7; controls.maxDistance = 50; controls.maxPolarAngle = Math.PI;
+            controls = new OrbitControls(camera, renderer.domElement); 
+            controls.enableDamping = true; 
+            controls.dampingFactor = 0.05;
+            controls.screenSpacePanning = false; 
+            controls.enablePan = false; 
+            controls.minDistance = 7; 
+            controls.maxDistance = 50; 
+            controls.maxPolarAngle = Math.PI;
         }
 
-        //========================================== Globe Setup ==========================================
+        // Globe Setup
         function setupGlobe() {
             const globeGeometry = new THREE.SphereGeometry(GLOBE_RADIUS, 64, 32);
             const textureLoader = new THREE.TextureLoader();
-            const earthTexture = textureLoader.load('https://cdn.jsdelivr.net/gh/mrdoob/three.js/examples/textures/planets/earth_atmos_2048.jpg',
-               () => console.log("Globe texture loaded successfully."),
-               undefined,
-               (err) => console.error('Failed to load globe texture:', err)
+            const earthTexture = textureLoader.load(
+                'https://cdn.jsdelivr.net/gh/mrdoob/three.js/examples/textures/planets/earth_atmos_2048.jpg',
+                () => console.log("Globe texture loaded successfully."),
+                undefined,
+                (err) => console.error('Failed to load globe texture:', err)
             );
             earthTexture.colorSpace = THREE.SRGBColorSpace;
-            const globeMaterial = new THREE.MeshStandardMaterial({ map: earthTexture, metalness: 0.1, roughness: 0.9, color: 0xffffff });
+            const globeMaterial = new THREE.MeshStandardMaterial({ 
+                map: earthTexture, 
+                metalness: 0.1, 
+                roughness: 0.9, 
+                color: 0xffffff 
+            });
             globe = new THREE.Mesh(globeGeometry, globeMaterial);
             scene.add(globe);
         }
 
-        //========================================== Markers Group Setup ==========================================
-        function setupMarkersGroup() { markersGroup = new THREE.Group(); globe.add(markersGroup); }
+        // Markers Group Setup
+        function setupMarkersGroup() { 
+            markersGroup = new THREE.Group(); 
+            globe.add(markersGroup); 
+        }
 
-        //========================================== Event Listeners Setup ==========================================
+        // Event Listeners Setup
         function setupEventListeners() {
             window.addEventListener('resize', onWindowResize); 
             window.addEventListener('pointermove', onPointerMove);
             window.addEventListener('click', onClick); 
-            window.addEventListener('touchstart', onTouchStart, { passive: true });
+            window.addEventListener('touchstart', onFirstInteraction, { passive: true, once: true });
             window.addEventListener('contextmenu', (event) => event.preventDefault());
             pauseButton.addEventListener('click', togglePlayback); 
             audioPlayer.addEventListener('error', handleAudioError);
@@ -218,97 +318,124 @@
             audioPlayer.addEventListener('ended', handleAudioEnded);
         }
 
-        function onTouchStart() {
-            // This helps iOS recognize the page as touch-enabled
-            window.removeEventListener('touchstart', onTouchStart);
+        function onFirstInteraction() {
+            isFirstInteraction = false;
+            // This helps iOS recognize the page as interactive
+            console.log("First interaction detected");
         }
 
-        //========================================== Fetch Stations ==========================================
+        // Fetch Stations
         async function fetchAllStations() {
-             console.log("Fetching general and Japanese stations...");
-             try {
-                 const [generalResponse, japanResponse] = await Promise.all([
-                     fetch(GENERAL_STATIONS_URL, { mode: 'cors' }),
-                     fetch(JAPAN_STATIONS_URL, { mode: 'cors' })
-                 ]);
-                 const generalData = generalResponse.ok ? await generalResponse.json() : [];
-                 if (!generalResponse.ok) console.warn(`General stations fetch failed: ${generalResponse.status}`);
-                 const japanData = japanResponse.ok ? await japanResponse.json() : [];
-                 if (!japanResponse.ok) console.warn(`Japan stations fetch failed: ${japanResponse.status}`);
-
-                 console.log(`Fetched ${generalData.length} general, ${japanData.length} Japanese stations raw.`);
-                 const allStationsData = [...generalData, ...japanData];
-                 const stationMap = new Map();
-                 allStationsData.forEach(station => {
-                     const url = station.url_resolved || station.url;
-                     if (station.geo_lat != null && station.geo_long != null && typeof station.geo_lat === 'number' && typeof station.geo_long === 'number' && url && url.startsWith('https')) {
-                         const key = station.stationuuid || url;
-                         if (!stationMap.has(key)) {
-                             stationMap.set(key, { 
-                                 name: (station.name || 'Unknown').replace(/</g, "&lt;").replace(/>/g, "&gt;"), 
-                                 lat: station.geo_lat, 
-                                 lon: station.geo_long, 
-                                 url: url, 
-                                 country: (station.countrycode || station.country || 'Unknown').replace(/</g, "&lt;").replace(/>/g, "&gt;"), 
-                                 favicon: station.favicon || null, 
-                                 codec: station.codec || 'Unknown' 
-                             });
-                         }
-                     }
-                 });
-                 const uniqueStations = Array.from(stationMap.values());
-                 console.log(`Processed ${uniqueStations.length} unique valid HTTPS stations.`);
-                 logRegionalDistribution(uniqueStations); 
-                 return uniqueStations;
-             } catch (error) { 
-                 console.error("Failed to fetch stations inside fetchAllStations:", error); 
-                 return []; 
-             }
+            console.log("Fetching general and Japanese stations...");
+            try {
+                const [generalResponse, japanResponse] = await Promise.all([
+                    fetch(GENERAL_STATIONS_URL, { mode: 'cors' }),
+                    fetch(JAPAN_STATIONS_URL, { mode: 'cors' })
+                ]);
+                
+                const generalData = generalResponse.ok ? await generalResponse.json() : [];
+                const japanData = japanResponse.ok ? await japanResponse.json() : [];
+                
+                console.log(`Fetched ${generalData.length} general, ${japanData.length} Japanese stations raw.`);
+                const allStationsData = [...generalData, ...japanData];
+                const stationMap = new Map();
+                
+                allStationsData.forEach(station => {
+                    const url = station.url_resolved || station.url;
+                    if (station.geo_lat != null && 
+                        station.geo_long != null && 
+                        typeof station.geo_lat === 'number' && 
+                        typeof station.geo_long === 'number' && 
+                        url && 
+                        url.startsWith('https')) {
+                        const key = station.stationuuid || url;
+                        if (!stationMap.has(key)) {
+                            stationMap.set(key, { 
+                                name: (station.name || 'Unknown').replace(/</g, "&lt;").replace(/>/g, "&gt;"), 
+                                lat: station.geo_lat, 
+                                lon: station.geo_long, 
+                                url: url, 
+                                country: (station.countrycode || station.country || 'Unknown').replace(/</g, "&lt;").replace(/>/g, "&gt;"), 
+                                favicon: station.favicon || null, 
+                                codec: station.codec || 'Unknown' 
+                            });
+                        }
+                    }
+                });
+                
+                const uniqueStations = Array.from(stationMap.values());
+                console.log(`Processed ${uniqueStations.length} unique valid HTTPS stations.`);
+                return uniqueStations;
+            } catch (error) { 
+                console.error("Failed to fetch stations:", error); 
+                return []; 
+            }
         }
 
-        //========================================== Add Station Markers ==========================================
+        // Add Station Markers
         function addStationMarkers(stationsData) {
-             if (!markersGroup) {
-                 console.error("markersGroup not initialized before addStationMarkers!");
-                 return;
-             }
-             const markerGeometry = new THREE.SphereGeometry(0.07, 12, 6); 
-             const markerMaterial = new THREE.MeshBasicMaterial({ color: 0xffcc00, toneMapped: false });
-             stationsData.forEach(station => {
-                 const marker = new THREE.Mesh(markerGeometry, markerMaterial.clone()); 
-                 const phi = (90 - station.lat) * (Math.PI / 180); 
-                 const theta = (station.lon + 180) * (Math.PI / 180);
-                 marker.position.set(-(GLOBE_RADIUS * Math.sin(phi) * Math.cos(theta)), GLOBE_RADIUS * Math.cos(phi), GLOBE_RADIUS * Math.sin(phi) * Math.sin(theta));
-                 marker.position.multiplyScalar(1.01); 
-                 marker.lookAt(globe.position); 
-                 marker.userData = station; 
-                 markersGroup.add(marker);
-             }); 
-             console.log(`Added ${markersGroup.children.length} markers to markersGroup.`);
+            if (!markersGroup) {
+                console.error("markersGroup not initialized!");
+                return;
+            }
+            
+            const markerGeometry = new THREE.SphereGeometry(0.07, 12, 6); 
+            const markerMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xffcc00, 
+                toneMapped: false 
+            });
+            
+            stationsData.forEach(station => {
+                const marker = new THREE.Mesh(markerGeometry, markerMaterial.clone()); 
+                const phi = (90 - station.lat) * (Math.PI / 180); 
+                const theta = (station.lon + 180) * (Math.PI / 180);
+                
+                marker.position.set(
+                    -(GLOBE_RADIUS * Math.sin(phi) * Math.cos(theta)), 
+                    GLOBE_RADIUS * Math.cos(phi), 
+                    GLOBE_RADIUS * Math.sin(phi) * Math.sin(theta)
+                );
+                
+                marker.position.multiplyScalar(1.01); 
+                marker.lookAt(globe.position); 
+                marker.userData = station; 
+                markersGroup.add(marker);
+            }); 
+            
+            console.log(`Added ${markersGroup.children.length} markers to markersGroup.`);
         }
 
-        //========================================== Web Audio API Setup ==========================================
-        function setupAudioContext() {
-             if (isAudioContextSetup) return; 
-             try {
-                 console.log("Setting up Audio Context..."); 
-                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                 analyser = audioContext.createAnalyser(); 
-                 analyser.fftSize = FFT_SIZE;
-                 const bufferLength = analyser.frequencyBinCount; 
-                 dataArray = new Uint8Array(bufferLength);
-                 audioSource = audioContext.createMediaElementSource(audioPlayer); 
-                 audioSource.connect(analyser); 
-                 analyser.connect(audioContext.destination);
-                 isAudioContextSetup = true; 
-                 console.log("Audio Context setup complete.");
-             } catch (e) { 
-                 console.error("Audio Context Error:", e); 
-                 alert("Web Audio API init failed."); 
-             }
+        // Web Audio API Setup
+        async function setupAudioContext() {
+            if (isAudioContextSetup) return;
+            
+            try {
+                console.log("Setting up Audio Context..."); 
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // iOS requires immediate resume on first interaction
+                if (audioContext.state === 'suspended' && isFirstInteraction) {
+                    console.log("Audio context suspended, waiting for first interaction");
+                    return;
+                }
+                
+                analyser = audioContext.createAnalyser(); 
+                analyser.fftSize = FFT_SIZE;
+                const bufferLength = analyser.frequencyBinCount; 
+                dataArray = new Uint8Array(bufferLength);
+                
+                audioSource = audioContext.createMediaElementSource(audioPlayer); 
+                audioSource.connect(analyser); 
+                analyser.connect(audioContext.destination);
+                
+                isAudioContextSetup = true; 
+                console.log("Audio Context setup complete.");
+            } catch (e) { 
+                console.error("Audio Context Error:", e); 
+            }
         }
 
-        //========================================== Event Handlers ==========================================
+        // Event Handlers
         function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight; 
             camera.updateProjectionMatrix();
@@ -322,17 +449,23 @@
             pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
             raycaster.setFromCamera(pointer, camera); 
             const intersects = raycaster.intersectObjects(markersGroup.children);
+            
             if (intersects.length > 0) { 
                 const firstIntersect = intersects[0].object; 
                 if (INTERSECTED !== firstIntersect) { 
-                    if (INTERSECTED && INTERSECTED !== selectedMarker) INTERSECTED.material.color.setHex(0xffcc00); 
+                    if (INTERSECTED && INTERSECTED !== selectedMarker) {
+                        INTERSECTED.material.color.setHex(0xffcc00); 
+                    }
                     INTERSECTED = firstIntersect; 
-                    if (INTERSECTED !== selectedMarker) INTERSECTED.material.color.setHex(0x00ff00); 
+                    if (INTERSECTED !== selectedMarker) {
+                        INTERSECTED.material.color.setHex(0x00ff00); 
+                    }
                     document.body.style.cursor = 'pointer'; 
                 } 
-            }
-            else { 
-                if (INTERSECTED && INTERSECTED !== selectedMarker) INTERSECTED.material.color.setHex(0xffcc00); 
+            } else { 
+                if (INTERSECTED && INTERSECTED !== selectedMarker) {
+                    INTERSECTED.material.color.setHex(0xffcc00); 
+                }
                 INTERSECTED = null; 
                 document.body.style.cursor = 'default'; 
             }
@@ -356,10 +489,11 @@
                         showLoadingState();
                         
                         if (!isAudioContextSetup) {
-                            setupAudioContext();
-                            // iOS requires we resume the context immediately after creation
-                            await audioContext.resume();
-                        } else if (audioContext.state === 'suspended') {
+                            await setupAudioContext();
+                        }
+                        
+                        // Always resume audio context on iOS
+                        if (audioContext.state === 'suspended') {
                             await audioContext.resume();
                         }
                         
@@ -381,34 +515,28 @@
                         stationNameElement.textContent = `${station.name} (${station.country}) - Loading...`;
                         infoBox.style.display = 'block';
                         
+                        // iOS requires setting src after user interaction
                         audioPlayer.src = station.url;
                         audioPlayer.load();
                         
                         const playPromise = audioPlayer.play();
                         
                         if (playPromise !== undefined) {
-                            playPromise
-                                .then(() => {
-                                    console.log("Playback initiated");
-                                    hideLoadingState();
-                                })
-                                .catch(error => {
-                                    console.error("Play() failed:", error);
-                                    hideLoadingState();
-                                    // Show user-friendly error message
-                                    stationNameElement.textContent = `${station.name} - Tap to try again`;
-                                    if (selectedMarker) {
-                                        selectedMarker.material.color.setHex(0xffcc00);
-                                        selectedMarker.scale.set(1, 1, 1);
-                                        selectedMarker = null;
-                                    }
-                                    updatePauseButton();
-                                });
+                            await playPromise;
+                            console.log("Playback initiated");
+                            hideLoadingState();
                         }
                     } catch (error) {
                         console.error("Playback error:", error);
                         hideLoadingState();
-                        stationNameElement.textContent = `Error: ${selectedMarker?.userData?.name || 'station'} - Tap to retry`;
+                        
+                        // Special handling for iOS autoplay restrictions
+                        if (error.name === 'NotAllowedError') {
+                            stationNameElement.textContent = "Tap the play button to start";
+                        } else {
+                            stationNameElement.textContent = `${selectedMarker?.userData?.name || 'Station'} - Tap to retry`;
+                        }
+                        
                         if (selectedMarker) {
                             selectedMarker.material.color.setHex(0xffcc00);
                             selectedMarker.scale.set(1, 1, 1);
@@ -418,8 +546,7 @@
                     }
                 };
                 
-                // Execute the playback handler
-                handlePlayback();
+                await handlePlayback();
             }
         }
 
@@ -439,16 +566,21 @@
             if (!selectedMarker) return;
             
             try {
+                showLoadingState();
+                
                 if (audioPlayer.paused) {
-                    showLoadingState();
+                    // Ensure audio context is active
                     if (audioContext && audioContext.state === 'suspended') {
                         await audioContext.resume();
                     }
+                    
+                    // On iOS, we may need to play through the button click
                     await audioPlayer.play();
-                    hideLoadingState();
                 } else {
                     audioPlayer.pause();
                 }
+                
+                hideLoadingState();
             } catch (error) {
                 console.error("Toggle playback error:", error);
                 hideLoadingState();
@@ -463,6 +595,7 @@
                 pauseIcon.style.display = 'none'; 
                 return; 
             }
+            
             pauseButton.disabled = false; 
             if (audioPlayer.paused) { 
                 playIcon.style.display = 'block'; 
@@ -476,41 +609,51 @@
         }
 
         function handleAudioError(e) {
-             console.error('Audio Error:', e); 
-             const currentStationName = selectedMarker?.userData?.name || 'station'; 
-             let errorDetails = 'Stream offline/incompatible.';
-             
-             if (audioPlayer.error) { 
-                 switch (audioPlayer.error.code) { 
-                     case MediaError.MEDIA_ERR_ABORTED: errorDetails = 'Aborted.'; break; 
-                     case MediaError.MEDIA_ERR_NETWORK: errorDetails = 'Network error.'; break; 
-                     case MediaError.MEDIA_ERR_DECODE: errorDetails = 'Decode error.'; break; 
-                     case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED: errorDetails = 'Format/blocked (CORS?).'; break; 
-                     default: errorDetails = `Unknown (${audioPlayer.error.code}).`; 
-                 } 
-             }
-             
-             // Special handling for iOS
-             if (e.message && (e.message.includes('not allowed') || e.message.includes('user gesture'))) {
-                 errorDetails = "Tap the station again to play";
-             }
-             
-             const codecInfo = selectedMarker?.userData?.codec ? ` (${selectedMarker.userData.codec})` : ''; 
-             stationNameElement.textContent = `Error: ${currentStationName}${codecInfo}. ${errorDetails}`; 
-             infoBox.style.display = 'block';
-             
-             if (selectedMarker) { 
-                 selectedMarker.material.color.setHex(0xffcc00); 
-                 selectedMarker.scale.set(1, 1, 1); 
-                 selectedMarker = null; 
-             } 
-             updatePauseButton();
+            console.error('Audio Error:', e); 
+            const currentStationName = selectedMarker?.userData?.name || 'station'; 
+            let errorDetails = 'Stream offline/incompatible.';
+            
+            if (audioPlayer.error) { 
+                switch (audioPlayer.error.code) { 
+                    case MediaError.MEDIA_ERR_ABORTED: 
+                        errorDetails = 'Playback aborted.'; 
+                        break; 
+                    case MediaError.MEDIA_ERR_NETWORK: 
+                        errorDetails = 'Network error.'; 
+                        break; 
+                    case MediaError.MEDIA_ERR_DECODE: 
+                        errorDetails = 'Decode error.'; 
+                        break; 
+                    case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED: 
+                        errorDetails = 'Format not supported.'; 
+                        break; 
+                    default: 
+                        errorDetails = `Error code ${audioPlayer.error.code}.`; 
+                } 
+            }
+            
+            // Special handling for iOS autoplay restrictions
+            if (e.name === 'NotAllowedError') {
+                errorDetails = "Tap the play button to start";
+            }
+            
+            const codecInfo = selectedMarker?.userData?.codec ? ` (${selectedMarker.userData.codec})` : ''; 
+            stationNameElement.textContent = `${currentStationName}${codecInfo}: ${errorDetails}`; 
+            infoBox.style.display = 'block';
+            
+            if (selectedMarker) { 
+                selectedMarker.material.color.setHex(0xffcc00); 
+                selectedMarker.scale.set(1, 1, 1); 
+                selectedMarker = null; 
+            } 
+            
+            updatePauseButton();
         }
 
         function handleAudioStalled() { 
             console.warn('Audio stalled'); 
             if (selectedMarker) { 
-                stationNameElement.textContent = `Buffering: ${selectedMarker.userData.name} (${selectedMarker.userData.country})`; 
+                stationNameElement.textContent = `Buffering: ${selectedMarker.userData.name}`; 
                 infoBox.style.display = 'block'; 
             } 
         }
@@ -541,7 +684,7 @@
             updatePauseButton(); 
         }
 
-        //========================================== Animation Loop & Visualization ==========================================
+        // Animation Loop & Visualization
         function animate() {
             rafId = requestAnimationFrame(animate);
 
@@ -551,18 +694,12 @@
                 const time = Date.now() * 0.005; 
                 const scaleFactor = 0.15 * Math.abs(Math.sin(time)); 
                 selectedMarker.scale.set(1 + scaleFactor, 1 + scaleFactor, 1 + scaleFactor); 
-            }
-            else if (selectedMarker && selectedMarker.scale.x !== 1) { 
+            } else if (selectedMarker && selectedMarker.scale.x !== 1) { 
                 selectedMarker.scale.set(1, 1, 1); 
             }
 
             drawVisualizer();
-
-            try {
-                 renderer.render(scene, camera);
-            } catch (renderError) {
-                 console.error("Error during render:", renderError);
-            }
+            renderer.render(scene, camera);
         }
 
         function drawVisualizer() {
@@ -570,9 +707,16 @@
                 visualizerCtx.clearRect(0, 0, visualizerCanvas.width, visualizerCanvas.height); 
                 return; 
             }
-             visualizerCtx.clearRect(0, 0, visualizerCanvas.width, visualizerCanvas.height);
-            if (audioPlayer.paused) { return; }
+            
+            visualizerCtx.clearRect(0, 0, visualizerCanvas.width, visualizerCanvas.height);
+            
+            if (audioPlayer.paused) { 
+                return; 
+            }
+            
             analyser.getByteTimeDomainData(dataArray);
+            
+            // Check for flatline (CORS issues)
             let isFlat = true; 
             for(let i = 0; i < analyser.frequencyBinCount; i++) { 
                 if (dataArray[i] !== 128) { 
@@ -580,50 +724,44 @@
                     break; 
                 } 
             }
+            
             if (isFlat && Date.now() - lastCorsWarningTime > 10000) { 
                 console.warn("Visualizer data flat (CORS?)."); 
                 lastCorsWarningTime = Date.now(); 
             }
+            
             const sliceWidth = visualizerCanvas.width * 1.0 / analyser.frequencyBinCount; 
             const canvasHeight = visualizerCanvas.height; 
             const centerY = canvasHeight / 2;
             const offsets = [-15, 0, 15]; 
             const colors = ['rgba(0, 220, 255, 0.3)', 'rgba(59, 130, 246, 0.9)', 'rgba(0, 220, 255, 0.3)']; 
             const lineWidths = [1, 2, 1];
+            
             for(let lineIndex = 0; lineIndex < offsets.length; lineIndex++) {
                 visualizerCtx.lineWidth = lineWidths[lineIndex]; 
                 visualizerCtx.strokeStyle = colors[lineIndex]; 
                 visualizerCtx.beginPath(); 
                 let x = 0;
+                
                 for (let i = 0; i < analyser.frequencyBinCount; i++) {
                     const v = dataArray[i] / 128.0; 
                     const y = (v * centerY / 2) + centerY + offsets[lineIndex];
-                    if (i === 0) visualizerCtx.moveTo(x, y); 
-                    else visualizerCtx.lineTo(x, y);
+                    
+                    if (i === 0) {
+                        visualizerCtx.moveTo(x, y); 
+                    } else {
+                        visualizerCtx.lineTo(x, y);
+                    }
+                    
                     x += sliceWidth;
                 }
+                
                 visualizerCtx.lineTo(visualizerCanvas.width, centerY + offsets[lineIndex]); 
                 visualizerCtx.stroke();
             }
         }
 
-        //========================================== Utility Functions ==========================================
-        function logRegionalDistribution(stations) {
-             const regions = { Africa: 0, Asia: 0, Europe: 0, NorthAmerica: 0, SouthAmerica: 0, Oceania: 0, Other: 0, Japan: 0 };
-             stations.forEach(s => {
-                 if (s.country === 'JP') regions.Japan++;
-                 else if (s.lon > -20 && s.lon < 60 && s.lat > -40 && s.lat < 40) regions.Africa++;
-                 else if (s.lon > 60 && s.lon < 180 && s.lat > -10) regions.Asia++;
-                 else if (s.lon > -10 && s.lon < 40 && s.lat > 35) regions.Europe++;
-                 else if (s.lon > -170 && s.lon < -50 && s.lat > 10) regions.NorthAmerica++;
-                 else if (s.lon > -90 && s.lon < -30 && s.lat < 10) regions.SouthAmerica++;
-                 else if (s.lon > 110 && s.lon < 180 && s.lat < -10) regions.Oceania++;
-                 else regions.Other++;
-             });
-             console.log("Approximate regional distribution:", regions);
-        }
-
-        //========================================== Start Application ==========================================
+        // Start Application
         init();
     </script>
 </body>
