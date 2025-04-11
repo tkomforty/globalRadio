@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <title>Global Radio Listener</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -15,6 +16,7 @@
             -webkit-touch-callout: none;
             -webkit-user-select: none;
             touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
         }
         #container {
             position: absolute; 
@@ -127,7 +129,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body>
-
     <div id="container"></div>
     <canvas id="visualizerCanvas"></canvas>
 
@@ -162,6 +163,10 @@
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
+        // Detect iOS early
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        
         // Constants
         const API_BASE_URL = 'https://at1.api.radio-browser.info/json';
         const GENERAL_STATIONS_URL = `${API_BASE_URL}/stations/search?limit=350&has_geo_info=true&order=random&hidebroken=true&codec=MP3&codec=AAC`;
@@ -202,18 +207,33 @@
         // State
         let rafId;
         let isFirstInteraction = true;
-        let isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+        // Initialize audio context for iOS
+        function setupIOSAudioContext() {
+            if (!isIOS || isAudioContextSetup) return;
+            
+            try {
+                // Create silent buffer to unlock audio
+                const buffer = audioContext.createBuffer(1, 1, 22050);
+                const source = audioContext.createBufferSource();
+                source.buffer = buffer;
+                source.connect(audioContext.destination);
+                source.start(0);
+                
+                console.log("iOS audio context unlocked");
+            } catch (e) {
+                console.error("iOS audio unlock failed:", e);
+            }
+        }
 
         // Initialization
         async function init() {
             console.log("Starting initialization...");
             loadingMessage.style.display = 'block';
 
-            // iOS-specific initialization
+            // iOS-specific audio initialization
             if (isIOS) {
-                document.body.addEventListener('touchstart', initAudioContext, { once: true });
-                document.body.addEventListener('touchend', initAudioContext, { once: true });
+                document.body.addEventListener('touchstart', initAudioOnFirstTouch, { once: true, passive: true });
             }
 
             try {
@@ -242,6 +262,18 @@
                 console.error("Error during initialization:", error);
                 loadingMessage.textContent = 'Initialization Error. Please refresh.';
                 loadingMessage.style.display = 'block';
+            }
+        }
+
+        function initAudioOnFirstTouch() {
+            console.log("First touch detected - initializing audio");
+            isFirstInteraction = false;
+            if (isIOS && !isAudioContextSetup) {
+                setupAudioContext().then(() => {
+                    if (audioContext.state === 'suspended') {
+                        audioContext.resume();
+                    }
+                });
             }
         }
 
@@ -328,11 +360,6 @@
             audioPlayer.addEventListener('playing', handleAudioPlaying);
             audioPlayer.addEventListener('pause', handleAudioPaused); 
             audioPlayer.addEventListener('ended', handleAudioEnded);
-            
-            // Additional iOS-specific listeners
-            if (isIOS) {
-                document.body.addEventListener('touchstart', handleIOSAudioPlayback, { passive: true });
-            }
         }
 
         function onFirstInteraction() {
@@ -340,22 +367,18 @@
             console.log("First interaction detected");
         }
 
-        // iOS-specific audio handling
-        async function initAudioContext() {
+        // Modified setupAudioContext for iOS
+        async function setupAudioContext() {
             if (isAudioContextSetup) return;
             
             try {
-                console.log("Initializing audio context for iOS...");
+                console.log("Setting up Audio Context..."); 
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 
-                // Create silent buffer and play it to unlock audio
-                const buffer = audioContext.createBuffer(1, 1, 22050);
-                const source = audioContext.createBufferSource();
-                source.buffer = buffer;
-                source.connect(audioContext.destination);
-                source.start(0);
+                if (isIOS) {
+                    setupIOSAudioContext();
+                }
                 
-                // Setup analyser
                 analyser = audioContext.createAnalyser(); 
                 analyser.fftSize = FFT_SIZE;
                 const bufferLength = analyser.frequencyBinCount; 
@@ -366,27 +389,9 @@
                 analyser.connect(audioContext.destination);
                 
                 isAudioContextSetup = true; 
-                console.log("Audio Context setup complete for iOS.");
+                console.log("Audio Context setup complete.");
             } catch (e) { 
-                console.error("iOS Audio Context Error:", e); 
-            }
-        }
-
-        // Handle iOS playback requirements
-        async function handleIOSAudioPlayback() {
-            if (!selectedMarker || !audioPlayer.paused) return;
-            
-            try {
-                if (audioContext && audioContext.state === 'suspended') {
-                    await audioContext.resume();
-                }
-                
-                // iOS requires this to be called from a user gesture
-                await audioPlayer.play().catch(e => {
-                    console.log("iOS play attempt failed, will retry on button click:", e);
-                });
-            } catch (error) {
-                console.error("iOS playback error:", error);
+                console.error("Audio Context Error:", e); 
             }
         }
 
@@ -471,36 +476,6 @@
             console.log(`Added ${markersGroup.children.length} markers to markersGroup.`);
         }
 
-        // Web Audio API Setup
-        async function setupAudioContext() {
-            if (isAudioContextSetup) return;
-            
-            try {
-                console.log("Setting up Audio Context..."); 
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                
-                // iOS requires immediate resume on first interaction
-                if (audioContext.state === 'suspended' && isFirstInteraction) {
-                    console.log("Audio context suspended, waiting for first interaction");
-                    return;
-                }
-                
-                analyser = audioContext.createAnalyser(); 
-                analyser.fftSize = FFT_SIZE;
-                const bufferLength = analyser.frequencyBinCount; 
-                dataArray = new Uint8Array(bufferLength);
-                
-                audioSource = audioContext.createMediaElementSource(audioPlayer); 
-                audioSource.connect(analyser); 
-                analyser.connect(audioContext.destination);
-                
-                isAudioContextSetup = true; 
-                console.log("Audio Context setup complete.");
-            } catch (e) { 
-                console.error("Audio Context Error:", e); 
-            }
-        }
-
         // Event Handlers
         function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight; 
@@ -544,9 +519,6 @@
         }
 
         async function onClick(event) {
-            // Only proceed if this is a primary click (not right-click)
-            if (event.button !== 0) return;
-            
             // Handle both mouse and touch events
             const clientX = event.clientX || (event.touches && event.touches[0]?.clientX);
             const clientY = event.clientY || (event.touches && event.touches[0]?.clientY);
@@ -561,83 +533,73 @@
             if (intersects.length > 0) {
                 const clickedMarker = intersects[0].object;
                 
-                // iOS-specific audio context handling
-                const handlePlayback = async () => {
-                    try {
-                        showLoadingState();
-                        
-                        if (!isAudioContextSetup) {
-                            await setupAudioContext();
-                        }
-                        
-                        // Always resume audio context on iOS
-                        if (audioContext && audioContext.state === 'suspended') {
-                            await audioContext.resume();
-                        }
-                        
-                        if (clickedMarker === selectedMarker) {
-                            togglePlayback();
+                try {
+                    showLoadingState();
+                    
+                    if (!isAudioContextSetup) {
+                        await setupAudioContext();
+                    }
+                    
+                    // Always resume audio context on iOS
+                    if (audioContext && audioContext.state === 'suspended') {
+                        await audioContext.resume();
+                    }
+                    
+                    if (clickedMarker === selectedMarker) {
+                        togglePlayback();
+                        return;
+                    }
+                    
+                    if (selectedMarker) {
+                        selectedMarker.material.color.setHex(0xffcc00);
+                        selectedMarker.scale.set(1, 1, 1);
+                    }
+                    
+                    selectedMarker = clickedMarker;
+                    selectedMarker.material.color.setHex(0xff0000);
+                    const station = selectedMarker.userData;
+                    
+                    console.log(`Playing: ${station.name} (${station.country}), URL: ${station.url}`);
+                    stationNameElement.textContent = `${station.name} (${station.country}) - Loading...`;
+                    infoBox.style.display = 'block';
+                    
+                    audioPlayer.src = station.url;
+                    audioPlayer.load();
+                    
+                    // Special handling for iOS
+                    if (isIOS) {
+                        try {
+                            // Must be called directly from user gesture
+                            await audioPlayer.play();
+                            console.log("iOS playback started");
+                            hideLoadingState();
+                        } catch (e) {
+                            console.log("iOS play failed, prompting user to tap play button:", e);
+                            stationNameElement.textContent = `${station.name} - Tap play button to start`;
+                            hideLoadingState();
                             return;
                         }
-                        
-                        if (selectedMarker) {
-                            selectedMarker.material.color.setHex(0xffcc00);
-                            selectedMarker.scale.set(1, 1, 1);
-                        }
-                        
-                        selectedMarker = clickedMarker;
-                        selectedMarker.material.color.setHex(0xff0000);
-                        const station = selectedMarker.userData;
-                        
-                        console.log(`Playing: ${station.name} (${station.country}), URL: ${station.url}`);
-                        stationNameElement.textContent = `${station.name} (${station.country}) - Loading...`;
-                        infoBox.style.display = 'block';
-                        
-                        // iOS requires setting src after user interaction
-                        audioPlayer.src = station.url;
-                        audioPlayer.load();
-                        
-                        // On iOS, we need to trigger play from a user gesture
-                        if (isIOS) {
-                            try {
-                                await audioPlayer.play();
-                                console.log("iOS playback initiated");
-                                hideLoadingState();
-                            } catch (e) {
-                                console.log("iOS play failed, prompting user to tap play button:", e);
-                                stationNameElement.textContent = `${station.name} - Tap play button to start`;
-                                hideLoadingState();
-                            }
-                        } else {
-                            const playPromise = audioPlayer.play();
-                            
-                            if (playPromise !== undefined) {
-                                await playPromise;
-                                console.log("Playback initiated");
-                                hideLoadingState();
-                            }
-                        }
-                    } catch (error) {
-                        console.error("Playback error:", error);
+                    } else {
+                        await audioPlayer.play();
                         hideLoadingState();
-                        
-                        // Special handling for iOS autoplay restrictions
-                        if (error.name === 'NotAllowedError') {
-                            stationNameElement.textContent = "Tap the play button to start";
-                        } else {
-                            stationNameElement.textContent = `${selectedMarker?.userData?.name || 'Station'} - Tap to retry`;
-                        }
-                        
-                        if (selectedMarker) {
-                            selectedMarker.material.color.setHex(0xffcc00);
-                            selectedMarker.scale.set(1, 1, 1);
-                            selectedMarker = null;
-                        }
-                        updatePauseButton();
                     }
-                };
-                
-                await handlePlayback();
+                } catch (error) {
+                    console.error("Playback error:", error);
+                    hideLoadingState();
+                    
+                    if (error.name === 'NotAllowedError') {
+                        stationNameElement.textContent = "Tap the play button to start";
+                    } else {
+                        stationNameElement.textContent = `${selectedMarker?.userData?.name || 'Station'} - Tap to retry`;
+                    }
+                    
+                    if (selectedMarker) {
+                        selectedMarker.material.color.setHex(0xffcc00);
+                        selectedMarker.scale.set(1, 1, 1);
+                        selectedMarker = null;
+                    }
+                    updatePauseButton();
+                }
             }
         }
 
