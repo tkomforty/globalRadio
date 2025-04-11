@@ -114,6 +114,12 @@
             transition: background-color 0.2s ease;
             -webkit-tap-highlight-color: transparent;
         }
+        #pauseButton svg {
+            width: 24px;
+            height: 24px;
+            display: block;
+            pointer-events: none;
+        }
         #pauseButton .loading-spinner {
             display: none;
             animation: spin 1s linear infinite;
@@ -122,6 +128,10 @@
             border: 2px solid rgba(255,255,255,0.3);
             border-radius: 50%;
             border-top-color: white;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
         }
         @keyframes spin {
             to { transform: rotate(360deg); }
@@ -148,12 +158,16 @@
             <span id="stationName">Loading...</span>
         </div>
         <div id="instructions">
-            Tap & Drag to rotate. Tap a marker to play radio.
+            Tap & Drag to rotate. Pinch to zoom. Tap a marker to play radio.
         </div>
         <button id="pauseButton" title="Play/Pause" disabled>
-             <svg id="playIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="display: block;"> <path d="M8 5v14l11-7z"/> </svg>
-             <svg id="pauseIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="display: none;"> <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/> </svg>
-             <div class="loading-spinner"></div>
+            <svg id="playIcon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="white" style="display: block;">
+                <path d="M8 5v14l11-7z"/>
+            </svg>
+            <svg id="pauseIcon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="white" style="display: none;">
+                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+            </svg>
+            <div class="loading-spinner"></div>
         </button>
     </div>
 
@@ -332,10 +346,9 @@
             controls.touchRotateSpeed = 0.5;
             controls.touchDampingFactor = 0.2;
             
-            // Disable zoom on mobile
-            if (isMobile) {
-                controls.enableZoom = false;
-            }
+            // Enable zoom on mobile with pinch gesture
+            controls.enableZoom = true;
+            controls.zoomSpeed = 0.5;
         }
 
         // Globe Setup
@@ -386,6 +399,9 @@
                 touchStartX = e.touches[0].clientX;
                 touchStartY = e.touches[0].clientY;
                 isDragging = false;
+            } else if (e.touches.length === 2) {
+                // Allow zoom gestures to work immediately
+                isDragging = true;
             }
         }
 
@@ -399,9 +415,10 @@
                 });
                 window.dispatchEvent(clickEvent);
             }
+            isDragging = false;
         }
 
-        // Modified setupAudioContext for iOS
+        // Audio Context Setup
         async function setupAudioContext() {
             if (isAudioContextSetup) return;
             
@@ -418,9 +435,22 @@
                 const bufferLength = analyser.frequencyBinCount; 
                 dataArray = new Uint8Array(bufferLength);
                 
-                audioSource = audioContext.createMediaElementSource(audioPlayer); 
-                audioSource.connect(analyser); 
-                analyser.connect(audioContext.destination);
+                // Create a media stream source from the audio element
+                audioSource = audioContext.createMediaElementSource(audioPlayer);
+                
+                // Create a gain node to control volume if needed
+                const gainNode = audioContext.createGain();
+                gainNode.gain.value = 1.0;
+                
+                // Connect the nodes: source -> analyser -> gain -> destination
+                audioSource.connect(analyser);
+                analyser.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                // On iOS, we need to resume the context after creating it
+                if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
                 
                 isAudioContextSetup = true; 
                 console.log("Audio Context setup complete.");
@@ -777,6 +807,12 @@
                 stationNameElement.textContent = `${selectedMarker.userData.name} (${selectedMarker.userData.country})`; 
                 infoBox.style.display = 'block'; 
             } 
+            
+            // iOS-specific visualizer kickstart
+            if (isIOS && analyser) {
+                analyser.getByteFrequencyData(new Uint8Array(analyser.frequencyBinCount));
+            }
+            
             updatePauseButton(); 
         }
 
